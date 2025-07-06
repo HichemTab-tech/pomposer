@@ -73,6 +73,15 @@ class InstallCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $parser = new LockParser();
+        $store = new PackageStore();
+        $installer = new PackageInstaller($store);
+
+        $packages = $parser->getPackages();
+
+        foreach ($packages as $pkg) {
+            $installer->install($pkg);
+        }
 
         return Command::SUCCESS;
     }
