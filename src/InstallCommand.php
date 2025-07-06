@@ -60,7 +60,12 @@ class InstallCommand extends Command
                              |_|                                                                            
         </>'.PHP_EOL.PHP_EOL);
 
+        $output->writeln('<fg=yellow>⚠️ Pomposer is in beta. Use at your own risk! Not for production use. It was built just as a proof of concept for now.</>');
 
+        $output->writeln('<fg=blue>💡 Interested in helping Pomposer grow?</>');
+        //TODO: update links
+        $output->writeln('<fg=blue>👉 If you have ideas, experience, or just curiosity — please join the discussion and contribute at: https://github.com/HichemTab-tech/pomposer</>');
+        $output->writeln('<fg=cyan>https://github.com/HichemTab-tech/pomposer</>' . PHP_EOL);
 
     }
 
@@ -73,32 +78,26 @@ class InstallCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $this->configurePrompts($input, $output);
 
-        return Command::SUCCESS;
-    }
+        $output->writeln('<info>🔍 Reading composer.lock...</info>');
 
-    /**
-     * Get the version that should be downloaded.
-     *
-     * @param InputInterface $input
-     * @return string
-     */
-    protected function getVersion(InputInterface $input): string
-    {
-        if ($input->getOption('dev')) {
-            return 'dev-master';
+        $parser = new LockParser();
+        $packages = $parser->getPackages();
+
+        $store = new PackageStore();
+        $installer = new PackageInstaller($store);
+
+        foreach ($packages as $pkg) {
+            $installer->install($pkg);
         }
 
-        return '';
-    }
+        $output->writeln('<info>⚙️ Generating autoload files...</info>');
 
-    /**
-     * Get the composer command for the environment.
-     *
-     * @return string
-     */
-    protected function findComposer(): string
-    {
-        return implode(' ', $this->composer->findComposer());
+        (new AutoloadGenerator())->generate($packages);
+
+        $output->writeln('<info>✅ Pomposer install complete!</info>');
+
+        return Command::SUCCESS;
     }
 }
