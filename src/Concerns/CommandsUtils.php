@@ -124,4 +124,40 @@ trait CommandsUtils
     {
         return $this->display;
     }
+
+    /**
+     * Gets the user's home directory in a cross-platform way.
+     *
+     * @return string The path to the home directory.
+     * @throws RuntimeException If the home directory cannot be determined.
+     */
+    function getUserHomeDirectory(): string
+    {
+        // Check for the 'HOME' environment variable (common on Linux/macOS)
+        if (getenv('HOME')) {
+            return rtrim(getenv('HOME'), '/\\');
+        }
+
+        // Check for Windows-specific environment variables
+        if (getenv('HOMEDRIVE') && getenv('HOMEPATH')) {
+            return rtrim(getenv('HOMEDRIVE') . getenv('HOMEPATH'), '/\\');
+        }
+
+        // Fallback for other Windows environments
+        if (getenv('USERPROFILE')) {
+            return rtrim(getenv('USERPROFILE'), '/\\');
+        }
+
+        throw new RuntimeException('Could not determine the user home directory.');
+    }
+
+    protected function removeRecursive(string $path): void
+    {
+        if (is_link($path) || is_file($path)) {
+            unlink($path);
+        } elseif (is_dir($path)) {
+            array_map([$this, 'removeRecursive'], glob($path . '/*', GLOB_MARK));
+            rmdir($path);
+        }
+    }
 }

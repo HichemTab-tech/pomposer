@@ -73,15 +73,29 @@ class InstallCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $this->configurePrompts($input, $output);
+
+        $output->writeln('<info>🔍 Reading composer.lock...</info>');
+
         $parser = new LockParser();
+        $packages = $parser->getPackages();
+
         $store = new PackageStore();
         $installer = new PackageInstaller($store);
-
-        $packages = $parser->getPackages();
 
         foreach ($packages as $pkg) {
             $installer->install($pkg);
         }
+
+        $output->writeln('<info>🔗 Linking packages into vendor/...</info>');
+
+        (new VendorLinker())->link($packages);
+
+        $output->writeln('<info>⚙️ Generating autoload files...</info>');
+
+        (new AutoloadGenerator())->generate($packages);
+
+        $output->writeln('<info>✅ Pomposer install complete!</info>');
 
         return Command::SUCCESS;
     }

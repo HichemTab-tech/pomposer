@@ -29,6 +29,9 @@
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^10.4"
     },
+    "bin": [
+        "bin/pomposer"
+    ],
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
