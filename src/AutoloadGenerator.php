@@ -2,6 +2,10 @@
 
 namespace HichemTabTech\Pomposer\Console;
 
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+
 class AutoloadGenerator
 {
     protected string $vendorDir;
@@ -45,9 +49,9 @@ class AutoloadGenerator
             }
         }
 
-        $this->writeFile("{$this->vendorDir}/composer/autoload_psr4.php", $this->buildPsr4($psr4));
-        $this->writeFile("{$this->vendorDir}/composer/autoload_classmap.php", $this->buildClassmap($classmap));
-        $this->writeFile("{$this->vendorDir}/autoload.php", $this->buildMainAutoload());
+        $this->writeFile("$this->vendorDir/composer/autoload_psr4.php", $this->buildPsr4($psr4));
+        $this->writeFile("$this->vendorDir/composer/autoload_classmap.php", $this->buildClassmap($classmap));
+        $this->writeFile("$this->vendorDir/autoload.php", $this->buildMainAutoload());
     }
 
     protected function writeFile(string $path, string $content): void
@@ -69,17 +73,35 @@ class AutoloadGenerator
 
 // autoload_psr4.php
 
-return {$export};
+return $export;
 
 PHP;
     }
 
     protected function buildClassmap(array $paths): string
     {
-        // In real use: recursively scan these paths for .php classes
-        // Here we fake an empty classmap
+        $map = [];
 
-        $map = []; // @todo: implement scanning later
+        foreach ($paths as $path) {
+            if (!is_dir($path)) {
+                continue;
+            }
+
+            $files = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($files as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+
+                $class = $this->extractClassNameFromFile($file->getRealPath());
+                if ($class) {
+                    $map[$class] = $file->getRealPath();
+                }
+            }
+        }
         $export = var_export($map, true);
 
         return <<<PHP
@@ -87,7 +109,7 @@ PHP;
 
 // autoload_classmap.php
 
-return {$export};
+return $export;
 
 PHP;
     }
@@ -116,5 +138,23 @@ foreach (\$psr4 as \$namespace => \$dirs) {
 // classmap not implemented yet
 
 PHP;
+    }
+
+    protected function extractClassNameFromFile(string $file): ?string
+    {
+        $contents = file_get_contents($file);
+
+        // Match namespace (if any)
+        $namespace = '';
+        if (preg_match('/namespace\s+([^;]+);/', $contents, $nsMatch)) {
+            $namespace = trim($nsMatch[1]) . '\\';
+        }
+
+        // Match class/interface/trait
+        if (preg_match('/(class|interface|trait)\s+([a-zA-Z0-9_]+)/', $contents, $classMatch)) {
+            return $namespace . $classMatch[2];
+        }
+
+        return null;
     }
 }

@@ -60,7 +60,12 @@ class InstallCommand extends Command
                              |_|                                                                            
         </>'.PHP_EOL.PHP_EOL);
 
+        $output->writeln('<fg=yellow>⚠️ Pomposer is in beta. Use at your own risk! Not for production use. It was built just as a proof of concept for now.</>');
 
+        $output->writeln('<fg=blue>💡 Interested in helping Pomposer grow?</>');
+        //TODO: update links
+        $output->writeln('<fg=blue>👉 If you have ideas, experience, or just curiosity — please join the discussion and contribute at: https://github.com/HichemTab-tech/pomposer</>');
+        $output->writeln('<fg=cyan>https://github.com/HichemTab-tech/pomposer</>' . PHP_EOL);
 
     }
 
@@ -87,10 +92,6 @@ class InstallCommand extends Command
             $installer->install($pkg);
         }
 
-        $output->writeln('<info>🔗 Linking packages into vendor/...</info>');
-
-        (new VendorLinker())->link($packages);
-
         $output->writeln('<info>⚙️ Generating autoload files...</info>');
 
         (new AutoloadGenerator())->generate($packages);
@@ -98,30 +99,5 @@ class InstallCommand extends Command
         $output->writeln('<info>✅ Pomposer install complete!</info>');
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Get the version that should be downloaded.
-     *
-     * @param InputInterface $input
-     * @return string
-     */
-    protected function getVersion(InputInterface $input): string
-    {
-        if ($input->getOption('dev')) {
-            return 'dev-master';
-        }
-
-        return '';
-    }
-
-    /**
-     * Get the composer command for the environment.
-     *
-     * @return string
-     */
-    protected function findComposer(): string
-    {
-        return implode(' ', $this->composer->findComposer());
     }
 }

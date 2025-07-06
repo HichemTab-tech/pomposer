@@ -6,25 +6,96 @@ use RuntimeException;
 
 class LockParser
 {
+    protected string $composerPath;
     protected string $lockPath;
 
-    public function __construct(string $lockPath = 'composer.lock')
+    protected array $resolved = [];
+
+    public function __construct(string $composerPath = 'composer.json', string $lockPath = 'composer.lock')
     {
+        $this->composerPath = $composerPath;
         $this->lockPath = $lockPath;
     }
 
     public function getPackages(): array
     {
-        if (!file_exists($this->lockPath)) {
-            throw new RuntimeException("composer.lock not found at $this->lockPath");
+        if (file_exists($this->lockPath)) {
+            $lock = json_decode(file_get_contents($this->lockPath), true);
+            return $lock['packages'] ?? [];
         }
 
-        $data = json_decode(file_get_contents($this->lockPath), true);
-
-        if (!isset($data['packages'])) {
-            throw new RuntimeException("Invalid composer.lock format.");
+        if (!file_exists($this->composerPath)) {
+            throw new RuntimeException("composer.json not found.");
         }
 
-        return $data['packages']; // You can also return 'packages-dev' if needed
+        $composer = json_decode(file_get_contents($this->composerPath), true);
+        $requires = $composer['require'] ?? [];
+
+        foreach ($requires as $name => $constraint) {
+            if ($name === 'php') continue;
+            $this->resolve($name, $constraint);
+        }
+
+        return array_values($this->resolved);
+    }
+
+    protected function resolve(string $package, string $constraint): void
+    {
+        if (isset($this->resolved[$package])) {
+            return;
+        }
+
+        echo "🔍 Resolving $package ($constraint)...\n";
+
+        $metadata = $this->fetchPackageMeta($package);
+        $bestVersion = $this->pickBestVersion($metadata, $constraint);
+
+        if (!$bestVersion) {
+            throw new RuntimeException("Could not resolve version for $package");
+        }
+
+        $this->resolved[$package] = [
+            'name' => $package,
+            'version' => $bestVersion['version'],
+            'source' => $bestVersion['source'] ?? [],
+            'dist' => $bestVersion['dist'] ?? [],
+        ];
+
+        foreach ($bestVersion['require'] ?? [] as $dep => $depConstraint) {
+            if (!str_contains($dep, '/')) continue; // skip ext-* or php
+            $this->resolve($dep, $depConstraint);
+        }
+    }
+
+    protected function fetchPackageMeta(string $name): array
+    {
+        $url = "https://repo.packagist.org/p2/$name.json";
+        $json = @file_get_contents($url);
+        if (!$json) {
+            throw new RuntimeException("Failed to fetch metadata for $name");
+        }
+
+        $data = json_decode($json, true);
+        return $data['packages'][$name] ?? [];
+    }
+
+    protected function pickBestVersion(array $versions, string $constraint): ?array
+    {
+        // Naive: pick the first stable that matches (I can improve later)
+        foreach ($versions as $v) {
+            if (str_starts_with($v['version'], 'dev')) continue;
+            if (version_compare($v['version_normalized'], $constraint, '==') || $v['version'] === $constraint) {
+                return $v;
+            }
+        }
+
+        // Fallback to the first stable
+        foreach ($versions as $v) {
+            if (!str_starts_with($v['version'], 'dev')) {
+                return $v;
+            }
+        }
+
+        return $versions[0] ?? null;
     }
 }
