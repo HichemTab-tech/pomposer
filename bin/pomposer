@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php
+
+if (file_exists(__DIR__.'/../../../autoload.php')) {
+    /** @noinspection PhpIncludeInspection */
+    require __DIR__.'/../../../autoload.php';
+} else {
+    require __DIR__.'/../vendor/autoload.php';
+}
+
+// Define our own version and the Laravel Installer version we aim to match.
+$pomposerVersion = '1.2.2';
+
+// Compose the displayed version string.
+$displayVersion = sprintf('%s', $pomposerVersion);
+
+$app = new Symfony\Component\Console\Application('Pomposer', $displayVersion);
+$app->add(new HichemTabTech\Pomposer\Console\InstallCommand);
+
+/** @noinspection PhpUnhandledExceptionInspection */
+$app->run();

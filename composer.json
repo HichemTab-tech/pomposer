@@ -1,0 +1,37 @@
+{
+    "name": "hichemtab-tech/pomposer",
+    "description": "A smarter Composer wrapper for global caching, shared dependencies, and efficient package management across PHP projects.",
+    "type": "project",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "HichemTabTech\\Pomposer\\Console\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Hichem Taboukouyout",
+            "email": "hichem.taboukouyout@hichemtab-tech.me"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.2",
+        "illuminate/filesystem": "^10.20|^11.0|^12.0",
+        "illuminate/support": "^10.20|^11.0|^12.0",
+        "laravel/prompts": "^0.1.18|^0.2.0|^0.3.0",
+        "symfony/console": "^6.2|^7.0",
+        "symfony/process": "^6.2|^7.0",
+        "symfony/polyfill-mbstring": "^1.31"
+    },
+    "require-dev": {
+        "pestphp/pest": "^2.36",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^10.4"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
