@@ -10,9 +10,11 @@ class LockParser
     protected string $lockPath;
 
     protected array $resolved = [];
+    protected PackagistGateway $packagist;
 
-    public function __construct(string $composerPath = 'composer.json', string $lockPath = 'composer.lock')
+    public function __construct(PackagistGateway $packagist, string $composerPath = 'composer.json', string $lockPath = 'composer.lock')
     {
+        $this->packagist = $packagist;
         $this->composerPath = $composerPath;
         $this->lockPath = $lockPath;
     }
@@ -47,7 +49,7 @@ class LockParser
 
         echo "🔍 Resolving $package ($constraint)...\n";
 
-        $metadata = $this->fetchPackageMeta($package);
+        $metadata = $this->packagist->getPackageMetadata($package);
         $bestVersion = $this->pickBestVersion($metadata, $constraint);
 
         if (!$bestVersion) {
@@ -65,18 +67,6 @@ class LockParser
             if (!str_contains($dep, '/')) continue; // skip ext-* or php
             $this->resolve($dep, $depConstraint);
         }
-    }
-
-    protected function fetchPackageMeta(string $name): array
-    {
-        $url = "https://repo.packagist.org/p2/$name.json";
-        $json = @file_get_contents($url);
-        if (!$json) {
-            throw new RuntimeException("Failed to fetch metadata for $name");
-        }
-
-        $data = json_decode($json, true);
-        return $data['packages'][$name] ?? [];
     }
 
     protected function pickBestVersion(array $versions, string $constraint): ?array
