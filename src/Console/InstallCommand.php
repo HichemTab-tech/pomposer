@@ -9,6 +9,7 @@ use HichemTabTech\Pomposer\LockParser;
 use HichemTabTech\Pomposer\PackageInstaller;
 use HichemTabTech\Pomposer\PackageStore;
 use HichemTabTech\Pomposer\PackagistGateway;
+use HichemTabTech\Pomposer\ScriptRunner;
 use Illuminate\Support\Composer;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -90,7 +91,7 @@ class InstallCommand extends Command
 
         $packagist = new PackagistGateway();
         $parser = new LockParser($packagist);
-        $packages = $parser->getPackages();
+        [$composerJson, $packages] = $parser->getPackages();
 
         $store = new PackageStore();
         $installer = new PackageInstaller($store);
@@ -101,7 +102,14 @@ class InstallCommand extends Command
 
         $output->writeln('<info>⚙️ Generating autoload files...</info>');
 
-        (new AutoloadGenerator())->generate($packages);
+        (new AutoloadGenerator())->generate($packages, $composerJson);
+
+
+        $output->writeln('<info>🔄 Running post-install scripts...</info>');
+        $scriptRunner = new ScriptRunner();
+        $scriptRunner->runScripts($composerJson, 'post-autoload-dump');
+        $scriptRunner->runScripts($composerJson, 'post-install-cmd');
+        $output->writeln('<info>✅ Post-install scripts completed!</info>');
 
         $output->writeln('<info>✅ Pomposer install complete!</info>');
 

@@ -3,6 +3,7 @@
 namespace HichemTabTech\Pomposer;
 
 use RuntimeException;
+use Composer\Semver\Semver;
 
 class LockParser
 {
@@ -46,7 +47,7 @@ class LockParser
             $this->resolve($name, $constraint);
         }
 
-        return array_values($this->resolved);
+        return [$composer, array_values($this->resolved)];
     }
 
     protected function resolve(string $package, string $constraint): void
@@ -59,6 +60,7 @@ class LockParser
 
         $metadata = $this->packagist->getPackageMetadata($package);
         $bestVersion = $this->pickBestVersion($metadata, $constraint);
+        echo "    ➡️  Best version found: {$bestVersion['version']}\n";
 
         if (!$bestVersion) {
             throw new RuntimeException("Could not resolve version for $package");
@@ -79,10 +81,23 @@ class LockParser
 
     protected function pickBestVersion(array $versions, string $constraint): ?array
     {
-        // Naive: pick the first stable that matches (I can improve later)
+        $currentPhpVersion = phpversion();
         foreach ($versions as $v) {
-            if (str_starts_with($v['version'], 'dev')) continue;
-            if (version_compare($v['version_normalized'], $constraint, '==') || $v['version'] === $constraint) {
+            if (str_starts_with($v['version'], 'dev')) {
+                continue;
+            }
+
+            // Normalize: prefer version_normalized, fallback to version
+            $version = $v['version_normalized'] ?? $v['version'];
+
+            // If the package requires PHP, check compatibility
+            if (isset($requires['php']) && !Semver::satisfies($currentPhpVersion, $requires['php'])) {
+                continue;
+            }
+
+            // Check if this version satisfies the constraint
+            if (Semver::satisfies($version, $constraint)) {
+                echo "    ➡️  Version {$v['version']} satisfies constraint $constraint\n";
                 return $v;
             }
         }
@@ -90,6 +105,7 @@ class LockParser
         // Fallback to the first stable
         foreach ($versions as $v) {
             if (!str_starts_with($v['version'], 'dev')) {
+                echo "    ➡️  Fallback to first stable version: {$v['version']}\n";
                 return $v;
             }
         }

@@ -15,11 +15,19 @@ class AutoloadGenerator
         $this->vendorDir = rtrim($vendorDir, '/');
     }
 
-    public function generate(array $packages): void
+    public function generate(array $packages, array $composerJson): void
     {
         $psr4 = [];
         $classmap = [];
         $files = [];
+
+        $this->extractFromComposerJson(
+            $composerJson,
+            $psr4,
+            $classmap,
+            $files,
+            "composer.json"
+        );
 
         foreach ($packages as $package) {
             $name = $package['name'];
@@ -30,45 +38,65 @@ class AutoloadGenerator
             $composerPath = $path . '/composer.json';
 
             if (!file_exists($composerPath)) {
+                echo "⚠️  Skipping $name ($version) - composer.json not found at $composerPath\n";
                 continue;
             }
 
             $composerData = json_decode(file_get_contents($composerPath), true);
 
-            if (isset($composerData['autoload']['psr-4'])) {
-                foreach ($composerData['autoload']['psr-4'] as $namespace => $relPath) {
-                    if (is_array($relPath)) {
-                        // Handle multiple paths for the same namespace
-                        foreach ($relPath as $subPath) {
-                            $absPath = $path . '/' . $subPath;
-                            $psr4[$namespace][] = $absPath;
-                        }
-                        continue;
+            $this->extractFromComposerJson(
+                $composerData,
+                $psr4,
+                $classmap,
+                $files,
+                $path
+            );
+        }
+
+        $this->writeFile("$this->vendorDir/composer/autoload_classmap.php", $this->buildClassmap($classmap));
+        $this->writeFile("$this->vendorDir/composer/autoload_files.php", $this->buildFilesAutoload($files));
+        $this->writeFile("$this->vendorDir/composer/autoload_psr4.php", $this->buildPsr4($psr4));
+        $this->writeFile("$this->vendorDir/autoload.php", $this->buildMainAutoload());
+    }
+
+    private function extractFromComposerJson(
+        array $composerData,
+        array &$psr4,
+        array &$classmap,
+        array &$files,
+        string $path
+    ): void
+    {
+        if (isset($composerData['autoload']['psr-4'])) {
+            foreach ($composerData['autoload']['psr-4'] as $namespace => $relPath) {
+                if (is_array($relPath)) {
+                    // Handle multiple paths for the same namespace
+                    foreach ($relPath as $subPath) {
+                        $absPath = $path . '/' . $subPath;
+                        $psr4[$namespace][] = $absPath;
                     }
-                    $absPath = $path . '/' . $relPath;
-                    $psr4[$namespace][] = $absPath;
+                    continue;
                 }
+                $absPath = $path . '/' . $relPath;
+                $psr4[$namespace][] = $absPath;
             }
+        }
 
-            if (isset($composerData['autoload']['classmap'])) {
-                foreach ($composerData['autoload']['classmap'] as $relPath) {
-                    $absPath = $path . '/' . $relPath;
-                    $classmap[] = $absPath;
-                }
+        if (isset($composerData['autoload']['classmap'])) {
+            foreach ($composerData['autoload']['classmap'] as $relPath) {
+                $absPath = $path . '/' . $relPath;
+                $classmap[] = $absPath;
             }
+        }
 
-            if (isset($composerData['autoload']['files'])) {
-                foreach ($composerData['autoload']['files'] as $relPath) {
-                    $absPath = $path . '/' . $relPath;
+        if (isset($composerData['autoload']['files'])) {
+            foreach ($composerData['autoload']['files'] as $relPath) {
+                $absPath = $path . '/' . $relPath;
+                if (file_exists($absPath)) {
                     $files[] = $absPath;
                 }
             }
         }
-
-        $this->writeFile("$this->vendorDir/composer/autoload_psr4.php", $this->buildPsr4($psr4));
-        $this->writeFile("$this->vendorDir/composer/autoload_classmap.php", $this->buildClassmap($classmap));
-        $this->writeFile("$this->vendorDir/composer/autoload_files.php", $this->buildFilesAutoload($files));
-        $this->writeFile("$this->vendorDir/autoload.php", $this->buildMainAutoload());
     }
 
     protected function writeFile(string $path, string $content): void
@@ -133,15 +161,26 @@ PHP;
 
     protected function buildFilesAutoload(array $files): string
     {
-        $lines = array_map(fn($file) => "require_once " . var_export($file, true) . ";", $files);
-        $content = implode("\n", $lines);
+        $entries = '';
+        foreach ($files as $file) {
+            $escaped = var_export($file, true);
+            $id = md5($file);
+            $entries .= "    \$require('$id', $escaped);\n";
+        }
 
         return <<<PHP
 <?php
 
-// autoload_files.php
+\$GLOBALS['__composer_autoload_files'] = \$GLOBALS['__composer_autoload_files'] ?? [];
 
-$content
+\$require = \\Closure::bind(static function (\$fileIdentifier, \$file) {
+    if (empty(\$GLOBALS['__composer_autoload_files'][\$fileIdentifier])) {
+        \$GLOBALS['__composer_autoload_files'][\$fileIdentifier] = true;
+        require \$file;
+    }
+}, null, null);
+
+$entries
 
 PHP;
     }
@@ -152,12 +191,6 @@ PHP;
 <?php
 
 // vendor/autoload.php
-
-// Load global include files (helpers, etc.)
-\$files = __DIR__ . '/composer/autoload_files.php';
-if (file_exists(\$files)) {
-    require \$files;
-}
 
 // PSR-4 autoloading
 \$psr4 = require __DIR__ . '/composer/autoload_psr4.php';
@@ -182,6 +215,9 @@ spl_autoload_register(function (\$class) use (\$classmap) {
     }
 });
 
+// Load global include files (helpers, etc.)
+require __DIR__ . '/composer/autoload_files.php';
+
 PHP;
     }
 
@@ -189,14 +225,14 @@ PHP;
     {
         $contents = file_get_contents($file);
 
-        // Match namespace (if any)
+        // Match namespace
         $namespace = '';
         if (preg_match('/namespace\s+([^;]+);/', $contents, $nsMatch)) {
             $namespace = trim($nsMatch[1]) . '\\';
         }
 
-        // Match class/interface/trait
-        if (preg_match('/(class|interface|trait)\s+([a-zA-Z0-9_]+)/', $contents, $classMatch)) {
+        // Match class/interface/trait/enum
+        if (preg_match('/^\s*(?:\b(?:final|abstract|readonly)\b\s+)*\b(class|interface|trait|enum)\b\s+([a-zA-Z0-9_]+)/mi', $contents, $classMatch)) {
             return $namespace . $classMatch[2];
         }
 
