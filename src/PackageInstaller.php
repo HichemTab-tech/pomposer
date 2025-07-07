@@ -11,21 +11,10 @@ class PackageInstaller
 {
     use CommandsUtils;
 
-    private $context;
-
     public function __construct(
         protected PackageStore $store
     ) {
         $this->store->ensureStoreExists();
-        $options = [
-            'http' => [
-                'header' => "User-Agent: My-PHP-Script/1.0\r\n"
-            ]
-        ];
-
-        // Create the stream context
-        $this->context = stream_context_create($options);
-
     }
 
     public function install(array $package): void
@@ -41,53 +30,30 @@ class PackageInstaller
 
         echo "⬇️  Downloading {$package['name']} ($version) via dist...\n";
 
-        $metadata = $this->getMetadata($vendor, $name);
-
-        $target = $this->findVersion($metadata, $version);
-        if (!$target || !isset($target['dist']['url'])) {
+        if (!isset($package['dist']['url'])) {
             throw new RuntimeException("Could not find ZIP dist for {$package['name']}@$version");
         }
 
-        $zipUrl = $target['dist']['url'];
+        $zipUrl = $package['dist']['url'];
 
         $this->downloadAndExtractZip($zipUrl, $path);
 
         echo "📦 Stored in $path\n";
     }
 
-    protected function getMetadata(string $vendor, string $name): array
-    {
-        $url = "https://repo.packagist.org/p2/$vendor/$name.json";
-        $json = file_get_contents($url, context: $this->context);
-
-        if (!$json) {
-            throw new RuntimeException("Failed to fetch metadata for $vendor/$name");
-        }
-
-        return json_decode($json, true);
-    }
-
-    protected function findVersion(array $metadata, string $version): ?array
-    {
-        $packages = $metadata['packages'] ?? [];
-
-        foreach ($packages as $pkgVersions) {
-            foreach ($pkgVersions as $ver) {
-                if ($ver['version_normalized'] === $version || $ver['version'] === $version) {
-                    return $ver;
-                }
-            }
-        }
-
-        return null;
-    }
-
     protected function downloadAndExtractZip(string $url, string $targetPath): void
     {
         $fs = new Filesystem();
 
+        $options = [
+            'http' => [
+                'header' => "User-Agent: HichemTabTech/Pomposer/1.0\r\n"
+            ]
+        ];
+        $context = stream_context_create($options);
+
         $tmpZip = tempnam(sys_get_temp_dir(), 'pomposer_zip_') . '.zip';
-        file_put_contents($tmpZip, file_get_contents($url, context: $this->context));
+        file_put_contents($tmpZip, file_get_contents($url, false, $context));
 
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) === true) {
