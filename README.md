@@ -2,7 +2,7 @@
 
 A blazing-fast, cache-aware Composer wrapper that shares packages globally between PHP projects — inspired by `pnpm`.
 
-![Pomposer logo](meta\pomposer.png "Pomposer logo")
+![Pomposer logo](meta/pomposer.png "Pomposer logo")
 
 ## Why Pomposer?
 
