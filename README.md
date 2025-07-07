@@ -11,21 +11,24 @@ Every `composer install` duplicates packages per project, eating up disk space a
 
 **Pomposer** brings the best of `pnpm` to PHP:
 
-- 📦 **Global package store**: Each package version is installed once, then reused everywhere
-- 🔗 **Vendor symlinking/copying**: Creates local `vendor/` folders using lightweight links
-- ⚡ **Faster installs**: Once packages are cached, installs are nearly instant
-- 🧠 **Lock-free support**: Works with or without `composer.lock`
-- 🪄 **Custom autoload generator**: Supports PSR-4 and classmap autoloading
+- 📦 **Global Package Store**: Each package version is downloaded and stored *only once*.
+- ⚡ **Faster Installs**: Once a package is in the global store, installs are nearly instant.
+- ⚙️ **Advanced Autoloader**: Generates a complete, optimized autoloader (PSR-4, classmap, files).
+- 🤝 **Framework Compatibility**: Creates the necessary manifests (`installed.json`, etc.) for features like Laravel's package auto-discovery.
+- 📜 **Script Execution**: Correctly runs `post-install-cmd` and `post-autoload-dump` scripts.
 
 ---
 
 ## How It Works
 
-1. **Read `composer.lock`** (or fallback to `composer.json` with **recursive** dependency resolution)
-2. **Download packages individually** (via Packagist ZIPs - no `composer install` required)
-3. **Store each package by version** in `~/.pomposer-store`
-4. **Link/copy packages** into `vendor/` structure
-5. **Generate autoload files** similar to Composer (PSR-4 + classmap)
+1.  **Read `composer.lock`** (or falls back to `composer.json` with its own resolver).
+2.  **Download and cache packages** to the global store at `~/.pomposer-store`.
+3.  **Read the full `composer.json` from within each package** to gather all metadata (autoloading rules, scripts, and framework providers).
+4.  **Generate a complete vendor directory**, including:
+    - An optimized classmap and PSR-4 autoloader pointing to the global store.
+    - The full package manifest (`installed.json`, `installed.php`, etc.) for framework compatibility.
+    - Compatibility stubs for Composer's internal classes.
+5.  **Execute post-install scripts** to finalize the installation (e.g., `php artisan package:discover`).
 
 ---
 
@@ -45,7 +48,7 @@ pomposer install
 
 ---
 
-## Example: Build a Real Project with Pomposer
+## Example 1: Build a small Project with Pomposer
 
 Let’s test Pomposer using a simple PHP app that:
 
@@ -146,7 +149,57 @@ New file name: file (3)
 
 ✅ You just installed `monolog/monolog` without Composer touching your `vendor/` at all.
 
----
+## Example: Building a Real Laravel App with Pomposer
+
+We have adapted Pomposer to install and run a modern Laravel application.
+This process served as a practical test of its ability to handle complex dependencies, package auto-discovery, and post-install scripting.
+
+### 1. Create a Laravel Project
+
+First, create a standard Laravel project with a starter kit like Breeze.
+
+#### using Laravel Installer
+
+```bash
+# Example using Laravel Breeze with React & SSR
+laravel new pomposer-test-app --breeze --stack react --ssr
+cd pomposer-test-app
+```
+#### or using LaravelFS Installer
+
+```bash
+laravelfs new pomposer-test-app --breeze --stack react --ssr
+cd pomposer-test-app
+```
+
+
+### 2. Remove Existing Vendor Directory
+
+We want to install from scratch using only Pomposer.
+
+```bash
+rm -rf vendor composer.lock
+```
+
+### 3. Run Pomposer
+
+Now, tell Pomposer to handle the installation.
+
+```bash
+pomposer install
+```
+
+Pomposer will resolve dependencies, use its global cache, generate the autoloader and package manifests, and correctly run php artisan package:discover as part of its script execution.
+
+### 4. Verify It Works
+
+Once the installation is complete, you can run standard Artisan commands. The application is ready to go.
+
+```bash
+php artisan about
+```
+
+You will see a complete list of environment details and discovered packages (like Inertia), proving that Laravel has booted successfully using the Pomposer-generated vendor directory.
 
 ## Global Store Layout
 
@@ -180,11 +233,11 @@ Packages are stored by name + version:
 
 Current limitations :
 
-* ❌ No plugin support (e.g., Laravel installer, Symfony flex)
-* ❌ No script execution (`post-install-cmd`, etc.)
-* ❌ No support for `provide`, `replace`, or `conflict`
-* ⚠️ Only supports packages with valid `dist.zip` from Packagist
-* ✅ Supports PSR-4 and classmap, not `files` or `psr-0` (yet)
+* ❌ ️ **No Symlinking:** Unlike pnpm, Pomposer does not use symlinks. It generates an autoloader that points directly to the global store. This means the `vendor/` directory is mostly empty, which can break tools or build scripts that expect to find physical files there.
+* ⚠️ **Basic Dependency Resolver:** The dependency resolver is simple and may fail on complex version constraints. It works best when a `composer.lock` file is present.
+* ❌ **No Support for `provide`/`replace`/`conflict`:** These advanced dependency management rules are not implemented.
+* ❌ **No Composer Plugin System:** Cannot run Composer plugins.
+* ⚠️ **Limited Autoloading:** Does not support the deprecated `psr-0` standard.
 
 ---
 
