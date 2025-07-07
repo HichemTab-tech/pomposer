@@ -24,7 +24,8 @@
         "symfony/process": "^6.2|^7.0",
         "symfony/polyfill-mbstring": "^1.31",
       "ext-zip": "*",
-        "symfony/filesystem": "^7.3"
+        "symfony/filesystem": "^7.3",
+        "composer/semver": "^3.4"
     },
     "require-dev": {
         "pestphp/pest": "3.8.2",
