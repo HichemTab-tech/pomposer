@@ -2,10 +2,12 @@
 
 A blazing-fast, cache-aware Composer wrapper that shares packages globally between PHP projects — inspired by `pnpm`.
 
+![Pomposer logo](meta\pomposer.png "Pomposer logo")
 
 ## Why Pomposer?
 
-Composer is the backbone of modern PHP development , but it's not optimized for shared storage. Every `composer install` duplicates packages per project, eating up disk space and time.
+Composer is the backbone of modern PHP development, but it's not optimized for shared storage.
+Every `composer install` duplicates packages per project, eating up disk space and time.
 
 **Pomposer** brings the best of `pnpm` to PHP:
 
@@ -123,7 +125,7 @@ It will:
 
 * Resolve dependencies (even if no `composer.lock`)
 * Download and cache each package version in `~/.pomposer-store`
-* Link the needed packages into your `vendor/` folder
+* Link the necessary packages into your `vendor/` folder
 * Generate a working autoloader
 
 ### 5. Run the test script
@@ -176,7 +178,7 @@ Packages are stored by name + version:
 > [!WARNING]  
 > Pomposer is still in **beta** — built as a proof of concept.
 
-Current limitations:
+Current limitations :
 
 * ❌ No plugin support (e.g., Laravel installer, Symfony flex)
 * ❌ No script execution (`post-install-cmd`, etc.)
