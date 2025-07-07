@@ -22,18 +22,19 @@ class LockParser
 
     public function getPackages(): array
     {
+        $composer = json_decode(file_get_contents($this->composerPath), true);
+
         if (file_exists($this->lockPath)) {
             $lock = json_decode(file_get_contents($this->lockPath), true);
             $packages = $lock['packages'] ?? [];
             $packagesDev = $lock['packages-dev'] ?? [];
-            return array_merge($packages, $packagesDev);
+            return [$composer, array_merge($packages, $packagesDev)];
         }
 
         if (!file_exists($this->composerPath)) {
             throw new RuntimeException("composer.json not found.");
         }
 
-        $composer = json_decode(file_get_contents($this->composerPath), true);
         $requires = $composer['require'] ?? [];
         $requiresDev = $composer['require-dev'] ?? [];
 
