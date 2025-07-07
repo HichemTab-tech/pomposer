@@ -19,6 +19,7 @@ class AutoloadGenerator
     {
         $psr4 = [];
         $classmap = [];
+        $files = [];
 
         foreach ($packages as $package) {
             $name = $package['name'];
@@ -36,6 +37,14 @@ class AutoloadGenerator
 
             if (isset($composerData['autoload']['psr-4'])) {
                 foreach ($composerData['autoload']['psr-4'] as $namespace => $relPath) {
+                    if (is_array($relPath)) {
+                        // Handle multiple paths for the same namespace
+                        foreach ($relPath as $subPath) {
+                            $absPath = $path . '/' . $subPath;
+                            $psr4[$namespace][] = $absPath;
+                        }
+                        continue;
+                    }
                     $absPath = $path . '/' . $relPath;
                     $psr4[$namespace][] = $absPath;
                 }
@@ -47,10 +56,18 @@ class AutoloadGenerator
                     $classmap[] = $absPath;
                 }
             }
+
+            if (isset($composerData['autoload']['files'])) {
+                foreach ($composerData['autoload']['files'] as $relPath) {
+                    $absPath = $path . '/' . $relPath;
+                    $files[] = $absPath;
+                }
+            }
         }
 
         $this->writeFile("$this->vendorDir/composer/autoload_psr4.php", $this->buildPsr4($psr4));
         $this->writeFile("$this->vendorDir/composer/autoload_classmap.php", $this->buildClassmap($classmap));
+        $this->writeFile("$this->vendorDir/composer/autoload_files.php", $this->buildFilesAutoload($files));
         $this->writeFile("$this->vendorDir/autoload.php", $this->buildMainAutoload());
     }
 
@@ -114,6 +131,21 @@ return $export;
 PHP;
     }
 
+    protected function buildFilesAutoload(array $files): string
+    {
+        $lines = array_map(fn($file) => "require_once " . var_export($file, true) . ";", $files);
+        $content = implode("\n", $lines);
+
+        return <<<PHP
+<?php
+
+// autoload_files.php
+
+$content
+
+PHP;
+    }
+
     protected function buildMainAutoload(): string
     {
         return <<<PHP
@@ -121,6 +153,13 @@ PHP;
 
 // vendor/autoload.php
 
+// Load global include files (helpers, etc.)
+\$files = __DIR__ . '/composer/autoload_files.php';
+if (file_exists(\$files)) {
+    require \$files;
+}
+
+// PSR-4 autoloading
 \$psr4 = require __DIR__ . '/composer/autoload_psr4.php';
 foreach (\$psr4 as \$namespace => \$dirs) {
     foreach ((array) \$dirs as \$dir) {
@@ -135,7 +174,13 @@ foreach (\$psr4 as \$namespace => \$dirs) {
     }
 }
 
-// classmap not implemented yet
+// Classmap autoloading
+\$classmap = require __DIR__ . '/composer/autoload_classmap.php';
+spl_autoload_register(function (\$class) use (\$classmap) {
+    if (isset(\$classmap[\$class])) {
+        require \$classmap[\$class];
+    }
+});
 
 PHP;
     }

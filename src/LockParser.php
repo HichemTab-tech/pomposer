@@ -23,7 +23,9 @@ class LockParser
     {
         if (file_exists($this->lockPath)) {
             $lock = json_decode(file_get_contents($this->lockPath), true);
-            return $lock['packages'] ?? [];
+            $packages = $lock['packages'] ?? [];
+            $packagesDev = $lock['packages-dev'] ?? [];
+            return array_merge($packages, $packagesDev);
         }
 
         if (!file_exists($this->composerPath)) {
@@ -32,8 +34,14 @@ class LockParser
 
         $composer = json_decode(file_get_contents($this->composerPath), true);
         $requires = $composer['require'] ?? [];
+        $requiresDev = $composer['require-dev'] ?? [];
 
         foreach ($requires as $name => $constraint) {
+            if ($name === 'php') continue;
+            $this->resolve($name, $constraint);
+        }
+
+        foreach ($requiresDev as $name => $constraint) {
             if ($name === 'php') continue;
             $this->resolve($name, $constraint);
         }
