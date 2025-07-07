@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 
+use HichemTabTech\Pomposer\Console\InstallCommand;
+
 if (file_exists(__DIR__.'/../../../autoload.php')) {
     /** @noinspection PhpIncludeInspection */
     require __DIR__.'/../../../autoload.php';
@@ -15,7 +17,7 @@ $pomposerVersion = '1.2.2';
 $displayVersion = sprintf('%s', $pomposerVersion);
 
 $app = new Symfony\Component\Console\Application('Pomposer', $displayVersion);
-$app->add(new HichemTabTech\Pomposer\Console\InstallCommand);
+$app->add(new InstallCommand);
 
 /** @noinspection PhpUnhandledExceptionInspection */
 $app->run();

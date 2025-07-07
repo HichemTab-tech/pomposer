@@ -1,6 +1,6 @@
 <?php
 
-namespace HichemTabTech\Pomposer\Console;
+namespace HichemTabTech\Pomposer;
 
 use RuntimeException;
 

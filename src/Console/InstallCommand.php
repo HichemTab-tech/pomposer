@@ -2,6 +2,12 @@
 
 namespace HichemTabTech\Pomposer\Console;
 
+use HichemTabTech\Pomposer\AutoloadGenerator;
+use HichemTabTech\Pomposer\Concerns\CommandsUtils;
+use HichemTabTech\Pomposer\Concerns\ConfiguresPrompts;
+use HichemTabTech\Pomposer\LockParser;
+use HichemTabTech\Pomposer\PackageInstaller;
+use HichemTabTech\Pomposer\PackageStore;
 use Illuminate\Support\Composer;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -9,8 +15,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class InstallCommand extends Command
 {
-    use Concerns\ConfiguresPrompts;
-    use Concerns\CommandsUtils;
+    use ConfiguresPrompts;
+    use CommandsUtils;
 
     /**
      * The Composer instance.

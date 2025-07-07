@@ -1,6 +1,6 @@
 <?php
 
-namespace HichemTabTech\Pomposer\Console\Concerns;
+namespace HichemTabTech\Pomposer\Concerns;
 
 use Closure;
 use Laravel\Prompts\ConfirmPrompt;

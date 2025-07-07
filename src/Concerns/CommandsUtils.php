@@ -1,6 +1,6 @@
 <?php
 
-namespace HichemTabTech\Pomposer\Console\Concerns;
+namespace HichemTabTech\Pomposer\Concerns;
 
 use Illuminate\Support\ProcessUtils;
 use Illuminate\Support\Str;
