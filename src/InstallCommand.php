@@ -63,8 +63,7 @@ class InstallCommand extends Command
         $output->writeln('<fg=yellow>⚠️ Pomposer is in beta. Use at your own risk! Not for production use. It was built just as a proof of concept for now.</>');
 
         $output->writeln('<fg=blue>💡 Interested in helping Pomposer grow?</>');
-        //TODO: update links
-        $output->writeln('<fg=blue>👉 If you have ideas, experience, or just curiosity — please join the discussion and contribute at: https://github.com/HichemTab-tech/pomposer</>');
+        $output->writeln('<fg=blue>👉 If you have ideas, experience, or just curiosity — please join the discussion and contribute at: https://github.com/HichemTab-tech/pomposer/discussions/4r</>');
         $output->writeln('<fg=cyan>https://github.com/HichemTab-tech/pomposer</>' . PHP_EOL);
 
     }
