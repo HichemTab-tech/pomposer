@@ -191,7 +191,7 @@ Current limitations:
 Got ideas or experience with Composer internals? Want to help evolve Pomposer into something production-ready?
 
 👉 **Join the discussion and contribute on GitHub**:
-[https://github.com/HichemTab-tech/pomposer](https://github.com/HichemTab-tech/pomposer)
+[https://github.com/HichemTab-tech/pomposer/discussions/4](https://github.com/HichemTab-tech/pomposer/discussions/4)
 
 ---
 
