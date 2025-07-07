@@ -1,8 +1,8 @@
 <?php
 
-namespace HichemTabTech\Pomposer\Console;
+namespace HichemTabTech\Pomposer;
 
-use HichemTabTech\Pomposer\Console\Concerns\CommandsUtils;
+use HichemTabTech\Pomposer\Concerns\CommandsUtils;
 use Illuminate\Filesystem\Filesystem;
 use RuntimeException;
 use ZipArchive;
