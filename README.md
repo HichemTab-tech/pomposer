@@ -165,7 +165,7 @@ First, create a standard Laravel project with a starter kit like Breeze.
 laravel new pomposer-test-app --breeze --stack react --ssr
 cd pomposer-test-app
 ```
-#### or using LaravelFS Installer
+#### or using [LaravelFS Installer](https://github.com/HichemTab-tech/LaravelFS)
 
 ```bash
 laravelfs new pomposer-test-app --breeze --stack react --ssr
