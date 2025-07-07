@@ -18,13 +18,17 @@ class ScriptRunner
             } elseif (preg_match('/^([\\w\\\\]+)::([a-zA-Z_]\w*)$/', $script, $matches)) {
                 // Static PHP handler, like Illuminate\Foundation\ComposerScripts::postAutoloadDump
                 [, $class, $method] = $matches;
-                echo "[Pomposer] Calling $class::$method()\n";
+                echo "[Pomposer] Calling $class::$method() via separate process\n";
 
-                if (class_exists($class) && method_exists($class, $method)) {
-                    call_user_func([$class, $method], null); // Composer usually passes Composer\Script\Event, so for now let's skip it :D
-                } else {
-                    echo "[Pomposer] Warning: $class::$method() not found\n";
-                }
+                // We create a small bootstrap script to execute the call in the project's context.
+                $phpCode = sprintf(
+                    "require_once __DIR__ . '/vendor/autoload.php'; %s::%s(null);",
+                    addslashes($class), // Use addslashes to be safe
+                    addslashes($method)
+                );
+
+                passthru("php -r \"$phpCode\"");
+
             } elseif (str_starts_with($script, '@')) {
                 // Aliases like @composer or @some-custom-script
                 echo "[Pomposer] Skipping alias: $script (not supported yet)\n";

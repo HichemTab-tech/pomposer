@@ -100,17 +100,22 @@ class InstallCommand extends Command
             $installer->install($pkg);
         }
 
+        $generator = new AutoloadGenerator();
+
         $output->writeln('<info>⚙️ Generating autoload files...</info>');
+        $generator->generate($packages, $composerJson);
 
-        (new AutoloadGenerator())->generate($packages, $composerJson);
-
+        $output->writeln('<info>📦 Generating full package manifest set...</info>');
+        // Pass both the packages and the root composer.json
+        $generator->generatePackageManifests($packages, $composerJson);
 
         $output->writeln('<info>🔄 Running post-install scripts...</info>');
         $scriptRunner = new ScriptRunner();
+
         $scriptRunner->runScripts($composerJson, 'post-autoload-dump');
         $scriptRunner->runScripts($composerJson, 'post-install-cmd');
-        $output->writeln('<info>✅ Post-install scripts completed!</info>');
 
+        $output->writeln('<info>✅ Post-install scripts completed!</info>');
         $output->writeln('<info>✅ Pomposer install complete!</info>');
 
         return Command::SUCCESS;

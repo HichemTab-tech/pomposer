@@ -5,28 +5,36 @@ namespace HichemTabTech\Pomposer;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use RuntimeException;
 
 class AutoloadGenerator
 {
     protected string $vendorDir;
+    protected string $projectRoot;
 
     public function __construct(string $vendorDir = 'vendor')
     {
         $this->vendorDir = rtrim($vendorDir, '/');
+        $this->projectRoot = getcwd();
+    }
+
+    private function joinPaths(...$paths): string
+    {
+        return preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, implode(DIRECTORY_SEPARATOR, $paths));
     }
 
     public function generate(array $packages, array $composerJson): void
     {
         $psr4 = [];
-        $classmap = [];
+        $classmapPathsToScan = [];
         $files = [];
 
         $this->extractFromComposerJson(
             $composerJson,
             $psr4,
-            $classmap,
+            $classmapPathsToScan,
             $files,
-            "composer.json"
+            $this->projectRoot
         );
 
         foreach ($packages as $package) {
@@ -47,51 +55,54 @@ class AutoloadGenerator
             $this->extractFromComposerJson(
                 $composerData,
                 $psr4,
-                $classmap,
+                $classmapPathsToScan,
                 $files,
                 $path
             );
         }
 
-        $this->writeFile("$this->vendorDir/composer/autoload_classmap.php", $this->buildClassmap($classmap));
+        $allPathsToScanForClassmap = $classmapPathsToScan;
+        foreach ($psr4 as $paths) {
+            $allPathsToScanForClassmap = array_merge($allPathsToScanForClassmap, $paths);
+        }
+        $allPathsToScanForClassmap = array_unique($allPathsToScanForClassmap);
+
+        $this->writeFile("$this->vendorDir/composer/autoload_classmap.php", $this->buildClassmap($allPathsToScanForClassmap));
         $this->writeFile("$this->vendorDir/composer/autoload_files.php", $this->buildFilesAutoload($files));
         $this->writeFile("$this->vendorDir/composer/autoload_psr4.php", $this->buildPsr4($psr4));
         $this->writeFile("$this->vendorDir/autoload.php", $this->buildMainAutoload());
+
+        $this->writeFile(
+            "$this->vendorDir/composer/ClassLoader.php",
+            $this->getPomposerClassLoaderStub()
+        );
     }
 
     private function extractFromComposerJson(
         array $composerData,
         array &$psr4,
-        array &$classmap,
+        array &$classmapPaths ,
         array &$files,
-        string $path
+        string $basePath = ""
     ): void
     {
         if (isset($composerData['autoload']['psr-4'])) {
-            foreach ($composerData['autoload']['psr-4'] as $namespace => $relPath) {
-                if (is_array($relPath)) {
-                    // Handle multiple paths for the same namespace
-                    foreach ($relPath as $subPath) {
-                        $absPath = $path . '/' . $subPath;
-                        $psr4[$namespace][] = $absPath;
-                    }
-                    continue;
+            foreach ($composerData['autoload']['psr-4'] as $namespace => $relPaths) {
+                foreach ((array) $relPaths as $relPath) {
+                    $psr4[$namespace][] = $this->joinPaths($basePath, $relPath);
                 }
-                $absPath = $path . '/' . $relPath;
-                $psr4[$namespace][] = $absPath;
             }
         }
 
         if (isset($composerData['autoload']['classmap'])) {
             foreach ($composerData['autoload']['classmap'] as $relPath) {
-                $absPath = $path . '/' . $relPath;
-                $classmap[] = $absPath;
+                $classmapPaths[] = $this->joinPaths($basePath, $relPath);
             }
         }
 
         if (isset($composerData['autoload']['files'])) {
             foreach ($composerData['autoload']['files'] as $relPath) {
-                $absPath = $path . '/' . $relPath;
+                $absPath = $this->joinPaths($basePath, $relPath);
                 if (file_exists($absPath)) {
                     $files[] = $absPath;
                 }
@@ -116,8 +127,6 @@ class AutoloadGenerator
         return <<<PHP
 <?php
 
-// autoload_psr4.php
-
 return $export;
 
 PHP;
@@ -128,31 +137,49 @@ PHP;
         $map = [];
 
         foreach ($paths as $path) {
-            if (!is_dir($path)) {
+            $realPath = realpath($path);
+
+            if ($realPath === false) {
                 continue;
             }
 
-            $files = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS)
-            );
-
-            foreach ($files as $file) {
-                if ($file->getExtension() !== 'php') {
-                    continue;
-                }
-
-                $class = $this->extractClassNameFromFile($file->getRealPath());
+            if (is_file($realPath)) {
+                $class = $this->extractClassNameFromFile($realPath);
                 if ($class) {
-                    $map[$class] = $file->getRealPath();
+                    $map[$class] = $realPath;
+                }
+                continue;
+            }
+
+            if (is_dir($realPath)) {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($realPath, FilesystemIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::LEAVES_ONLY
+                );
+
+                foreach ($iterator as $file) {
+                    if ($file->getExtension() !== 'php' || $file->isDir()) {
+                        continue;
+                    }
+
+                    $filePath = $file->getRealPath();
+                    $class = $this->extractClassNameFromFile($filePath);
+                    if ($class) {
+                        $map[$class] = $filePath;
+                    }
                 }
             }
         }
+
+        $map['Composer\\Autoload\\ClassLoader'] = $this->joinPaths($this->projectRoot, $this->vendorDir, 'composer', 'ClassLoader.php');
+
+        ksort($map);
         $export = var_export($map, true);
 
         return <<<PHP
 <?php
 
-// autoload_classmap.php
+\$baseDir = dirname(dirname(__DIR__));
 
 return $export;
 
@@ -190,9 +217,6 @@ PHP;
         return <<<PHP
 <?php
 
-// vendor/autoload.php
-
-// PSR-4 autoloading
 \$psr4 = require __DIR__ . '/composer/autoload_psr4.php';
 foreach (\$psr4 as \$namespace => \$dirs) {
     foreach ((array) \$dirs as \$dir) {
@@ -207,7 +231,6 @@ foreach (\$psr4 as \$namespace => \$dirs) {
     }
 }
 
-// Classmap autoloading
 \$classmap = require __DIR__ . '/composer/autoload_classmap.php';
 spl_autoload_register(function (\$class) use (\$classmap) {
     if (isset(\$classmap[\$class])) {
@@ -215,7 +238,6 @@ spl_autoload_register(function (\$class) use (\$classmap) {
     }
 });
 
-// Load global include files (helpers, etc.)
 require __DIR__ . '/composer/autoload_files.php';
 
 PHP;
@@ -237,5 +259,85 @@ PHP;
         }
 
         return null;
+    }
+
+    protected function getPomposerClassLoaderStub(): string
+    {
+        $stubPath = __DIR__ . '/stubs/ClassLoader.php.stub';
+
+        if (!file_exists($stubPath)) {
+            throw new RuntimeException("ClassLoader stub file not found at $stubPath");
+        }
+
+        return file_get_contents($stubPath);
+    }
+
+    /**
+     * Generates all necessary package manifest files for full compatibility.
+     * This includes installed.json, installed.php, and InstalledVersions.php.
+     *
+     * @param array $packages The list of all installed packages.
+     * @param array $rootComposerJson The content of the root composer.json.
+     */
+    public function generatePackageManifests(array $packages, array $rootComposerJson): void
+    {
+        $manifestJson = [
+            'packages' => $packages,
+            'dev' => true,
+            'dev-package-names' => [],
+        ];
+        $jsonContent = json_encode($manifestJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->writeFile($this->joinPaths($this->vendorDir, 'composer', 'installed.json'), $jsonContent);
+
+        $rootPackageName = $rootComposerJson['name'] ?? '__root__';
+        $installedPhp = [
+            'root' => [
+                'name' => $rootPackageName,
+                'version' => $rootComposerJson['version'] ?? 'dev-main',
+                'pretty_version' => $rootComposerJson['version'] ?? 'dev-main',
+                'type' => 'project',
+                'install_path' => $this->projectRoot,
+                'aliases' => [],
+                'reference' => null,
+            ],
+            'versions' => [],
+        ];
+
+        foreach ($packages as $package) {
+            $packageName = $package['name'];
+
+            $fakeInstallPath = $this->joinPaths($this->vendorDir, $packageName);
+
+            $installedPhp['versions'][$packageName] = [
+                'pretty_version' => $package['version'],
+                'version' => $package['version_normalized'] ?? $package['version'],
+                'type' => $package['type'] ?? 'library',
+                'install_path' => $fakeInstallPath, // Use the calculated fake path
+                'aliases' => $package['aliases'] ?? [],
+                'reference' => $package['source']['reference'] ?? $package['dist']['reference'] ?? null,
+            ];
+        }
+
+        $installedPhp['versions'][$rootPackageName] = $installedPhp['root'];
+
+        $phpContent = '<?php return ' . var_export($installedPhp, true) . ';';
+        $this->writeFile($this->joinPaths($this->vendorDir, 'composer', 'installed.php'), $phpContent);
+
+        $this->writeFile(
+            $this->joinPaths($this->vendorDir, 'composer', 'InstalledVersions.php'),
+            $this->getInstalledVersionsStub()
+        );
+    }
+
+    /**
+     * Helper to load the InstalledVersions stub file.
+     */
+    protected function getInstalledVersionsStub(): string
+    {
+        $stubPath = __DIR__ . '/stubs/InstalledVersions.php.stub';
+        if (!file_exists($stubPath)) {
+            throw new RuntimeException("InstalledVersions stub not found at $stubPath");
+        }
+        return file_get_contents($stubPath);
     }
 }

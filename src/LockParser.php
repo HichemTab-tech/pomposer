@@ -71,6 +71,7 @@ class LockParser
             'version' => $bestVersion['version'],
             'source' => $bestVersion['source'] ?? [],
             'dist' => $bestVersion['dist'] ?? [],
+            ...$bestVersion,
         ];
 
         foreach ($bestVersion['require'] ?? [] as $dep => $depConstraint) {
@@ -87,7 +88,6 @@ class LockParser
                 continue;
             }
 
-            // Normalize: prefer version_normalized, fallback to version
             $version = $v['version_normalized'] ?? $v['version'];
 
             // If the package requires PHP, check compatibility
