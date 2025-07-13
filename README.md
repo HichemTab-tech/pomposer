@@ -1,7 +1,6 @@
-# Pomposer - A Smarter Composer Wrapper (pnpm-style for PHP)
+# Pomposer - Shared Package Manager for PHP (pnpm-style for PHP)
 
-A blazing-fast, cache-aware Composer wrapper that shares packages globally between PHP projects — inspired by `pnpm`.
-
+A proof-of-concept package manager for PHP that installs dependencies once and shares them globally across projects to save space and boost speed. Inspired by pnpm, Pomposer avoids duplication by linking packages instead of reinstalling them for every project.
 ![Pomposer logo](meta/pomposer.png "Pomposer logo")
 
 ## Why Pomposer?
